@@ -43,8 +43,11 @@ var points = false;
 
 var stackableRenderer = new StackableRenderer();
 var memoryScheme = new MemoryColorScheme(new RandomColorScheme());
-
+var boxList;
+var container3D;
 var gridXZ;
+let index = 0;
+
 /**
  * Example temnplate of using Three with React
  */
@@ -53,6 +56,7 @@ class ThreeScene extends Component {
     super(props);
     this.state = { useWireFrame: false };
     visibleContainers = new Array();
+    boxList = new Array();
   }
 
   animate = () => {
@@ -87,6 +91,9 @@ class ThreeScene extends Component {
     document.addEventListener("keyup", this.onDocumentKeyUp, false);
     document.addEventListener("keydown", this.onDocumentKeyDown, false);
     document.addEventListener("mousemove", this.onDocumentMouseMove, false);
+    document.getElementById('pickCargo').addEventListener('click', () => {
+      this.pickCargo();
+    }, false);
 
     //--------START ANIMATION-----------
     this.renderScene();
@@ -94,207 +101,209 @@ class ThreeScene extends Component {
   }
 
   handleIntersection = () => {
-    raycaster.setFromCamera( pointer, camera );
-    
+    raycaster.setFromCamera(pointer, camera);
+
     var target = null;
-    for(var i = 0; i < visibleContainers.length; i++) {
-      for(var k = 0; k < visibleContainers[i].children.length; k++) {
-        var intersects = raycaster.intersectObjects(visibleContainers[i].children[k].children );
-        if ( intersects.length > 0 ) {
-          target = intersects[ 0 ].object;
+    for (var i = 0; i < visibleContainers.length; i++) {
+      for (var k = 0; k < visibleContainers[i].children.length; k++) {
+        var intersects = raycaster.intersectObjects(visibleContainers[i].children[k].children);
+        if (intersects.length > 0) {
+          target = intersects[0].object;
         }
       }
     }
 
-    if(target) {
-      if ( INTERSECTED != target) {
-        if ( INTERSECTED ) {
-          INTERSECTED.material.emissive = new Color("#000000");
+    // 鼠标移上去的颜色效果，不需要
+    // if(target) {
+    //   if ( INTERSECTED != target) {
+    //     if ( INTERSECTED ) {
+    //       INTERSECTED.material.emissive = new Color("red");
 
-        }
-        INTERSECTED = target
-        INTERSECTED.myColor = INTERSECTED.material.color;
-        INTERSECTED.material.emissive = new Color("#FF0000") 
-      }
-    } else {
-      if ( INTERSECTED ) {
-        INTERSECTED.material.emissive = new Color("#000000") ;
-        INTERSECTED = null;
-      }
-    }
+    //     }
+    //     INTERSECTED = target
+    //     INTERSECTED.myColor = INTERSECTED.material.color;
+    //     INTERSECTED.material.emissive = new Color("blue") 
+    //   }
+    // } else {
+    //   if ( INTERSECTED ) {
+    //     INTERSECTED.material.emissive = new Color("red") ;
+    //     INTERSECTED = null;
+    //   }
+    // }
   };
 
   handleStepNumber = () => {
-      console.log("Show step number " + stepNumber);
-      
-      for(var i = 0; i < visibleContainers.length; i++) {
-        var visibleContainer = visibleContainers[i];
-        
-        var visibleContainerUserData = visibleContainer.userData;
-        visibleContainer.visible = visibleContainerUserData.step < stepNumber;
+    console.log("Show step number " + stepNumber);
 
-		// adding alle the points is too expensive
-		// so add for a single step at a time 
-        stackableRenderer.removePoints(visibleContainer);
-        if(points) {
-        	stackableRenderer.addPoints(visibleContainer, memoryScheme, stepNumber, pointNumber);
-        }
-        
-        for(var k = 0; k < visibleContainers[i].children.length; k++) {
+    for (var i = 0; i < visibleContainers.length; i++) {
+      var visibleContainer = visibleContainers[i];
 
-          var container = visibleContainers[i].children[k];
-          var containerUserData = container.userData;
-          
-          container.visible = containerUserData.step < stepNumber;
-          
-          var stackables = container.children;
-          for(var j = 0; j < stackables.length; j++) {
-            var stackable = stackables[j];
-            var userData = stackables[j].userData;
-            
-            if(userData.type == "box") {
-                stackable.visible = userData.step < stepNumber;
-            }
+      var visibleContainerUserData = visibleContainer.userData;
+      visibleContainer.visible = visibleContainerUserData.step < stepNumber;
+
+      // adding alle the points is too expensive
+      // so add for a single step at a time 
+      stackableRenderer.removePoints(visibleContainer);
+      if (points) {
+        stackableRenderer.addPoints(visibleContainer, memoryScheme, stepNumber, pointNumber);
+      }
+
+      for (var k = 0; k < visibleContainers[i].children.length; k++) {
+
+        var container = visibleContainers[i].children[k];
+        var containerUserData = container.userData;
+
+        container.visible = containerUserData.step < stepNumber;
+
+        var stackables = container.children;
+        for (var j = 0; j < stackables.length; j++) {
+          var stackable = stackables[j];
+          var userData = stackables[j].userData;
+
+          if (userData.type == "box") {
+            stackable.visible = userData.step < stepNumber;
           }
-        }          
+        }
+      }
     }
   };
+
+  pickCargo = () => {
+    var lenght = boxList.length;
+    if (index > lenght) {
+      return
+    }
+    let box = null;
+    // if (index == 0) {
+    //   for (var i = 0; i < 429; i++) {
+    //     box = boxList[index];
+    //     container3D.add(box);
+    //     index++;
+    //   }
+    // }
+    box = boxList[index];
+    if (!box) {
+      console.log("No box found at index " + index);
+      return;
+    }
+    console.log("Pick box at index " + index + " with position " + box.position.x + ", " + box.position.y + ", " + box.position.z);
+    container3D.add(box)
+    index++;
+  }
 
   addModels = () => {
 
     // parent group to hold models
     mainGroup = new THREE.Object3D();
     this.scene.add(mainGroup);
-    
+
     let scene = this.scene;
-    
     var latestData = null;
 
-    var load = function(packaging) {
+    var load = function (packaging) {
+      var maxX = 0;
+      var x = 0;
+      var maxY = 0;
+      var maxZ = 0;
+      var minStep = -1;
+      var maxStep = -1;
+      maxPointNumbers = new Array();
 
       var data = JSON.stringify(packaging);
-      if(latestData != null && data == latestData) {
+      if (latestData != null && data == latestData) {
         return;
       }
       console.log("Update model");
 
       latestData = data;
 
-      for(var i = 0; i < visibleContainers.length; i++) {
+      for (var i = 0; i < visibleContainers.length; i++) {
         mainGroup.remove(visibleContainers[i]);
       }
-
-      var x = 0;
-
-      var minStep = -1;
-      var maxStep = -1;
-      
-      var maxX = 0;
-      var maxY = 0;
-      var maxZ = 0;
-
-      maxPointNumbers = new Array();
-  
-      for(var i = 0; i < packaging.containers.length; i++) {
+      for (var i = 0; i < packaging.containers.length; i++) {
         var containerJson = packaging.containers[i];
-  
         var container = new Container(containerJson.name, containerJson.id, containerJson.step, containerJson.dx, containerJson.dy, containerJson.dz, containerJson.loadDx, containerJson.loadDy, containerJson.loadDz);
-    
-        if(container.step < minStep || minStep == -1) {
-          minStep = container.step;
+        if (x + container.dx > maxX) {
+          maxX = x + container.dx;
         }
-
-        if(container.step > maxStep || maxStep == -1) {
-          maxStep = container.step;
+        if (container.dy > maxY) {
+          maxY = container.dy;
         }
-
-        for(var j = 0; j < containerJson.stack.placements.length; j++) {
+        if (container.dz > maxZ) {
+          maxZ = container.dz;
+        }
+        var offsetX = - container.dy / 2;
+        var offsetY = - container.dz / 2;
+        var offsetZ = - container.dx / 2;
+        for (var j = 0; j < containerJson.stack.placements.length; j++) {
           var placement = containerJson.stack.placements[j];
           var stackable = placement.stackable;
 
-          if(stackable.step < minStep || minStep == -1) {
+          if (stackable.step < minStep || minStep == -1) {
             minStep = stackable.step;
           }
-  
-          if(stackable.step > maxStep || maxStep == -1) {
+
+          if (stackable.step > maxStep || maxStep == -1) {
             maxStep = stackable.step;
           }
-          
-          var points = new Array();
-          
-          for(var l = 0; l < placement.points.length; l++) {
-                var point = placement.points[l];
-                
-                points.push(new Point(point.x, point.y, point.z, point.dx, point.dy, point.dz));
-          }
 
-          if(maxPointNumbers[stackable.step] == null || maxPointNumbers[stackable.step] < points.length) {
+          var points = new Array();
+
+          for (var l = 0; l < placement.points.length; l++) {
+            var point = placement.points[l];
+
+            points.push(new Point(point.x, point.y, point.z, point.dx, point.dy, point.dz));
+          }
+          if (maxPointNumbers[stackable.step] == null || maxPointNumbers[stackable.step] < points.length) {
             maxPointNumbers[stackable.step] = points.length;
           }
-
-
-          if(stackable.type == "box") {
+          if (stackable.type == "box") {
             var box = new Box(stackable.name, stackable.id, stackable.step, stackable.dx, stackable.dy, stackable.dz);
-            
-            container.add(new StackPlacement(box, placement.step, placement.x, placement.y, placement.z, points));
+            var st = new StackPlacement(box, placement.step, placement.x, placement.y, placement.z, points);
+            // container.add(st);
+
+            var position = stackableRenderer.makeBoxPosition(st, offsetX, offsetY, offsetZ);
+            boxList.push(position);
           } else {
             // TODO
           }
         }
 
-        console.log(maxPointNumbers)
-
-        maxStepNumber = maxStep + 1;
-        minStepNumber = minStep;
-        pointNumber = -1;
-        stepNumber = maxStepNumber;
-
-        // TODO return controls instead
-        var visibleContainer = stackableRenderer.add(mainGroup, memoryScheme, new StackPlacement(container, 0, x, 0, 0), 0, 0, 0);
+        var visibleContainer = stackableRenderer.add(mainGroup, memoryScheme, new StackPlacement(container, 0, x, 0, 0), 0, 0, 0, 0);
         visibleContainers.push(visibleContainer);
-
-
-		if(x + container.dx > maxX) {
-			maxX = x + container.dx;
-		}
-		if(container.dy > maxY) {
-			maxY = container.dy;
-		}
-		if(container.dz > maxZ) {
-			maxZ = container.dz;
-		}
+        container3D = visibleContainer;
 
         x += container.dx + GRID_SPACING;
         x = x - (x % GRID_SPACING);
       }
-      
-      camera.position.z = maxY * 2;
-      camera.position.y = maxZ * 1.25;
+
+      camera.position.z = maxY * 1.5;
+      camera.position.y = maxZ * 1;
       camera.position.x = maxX * 2;
-      
-	  // Add grid corresponding to containers
+
+      // Add grid corresponding to containers
       var size = Math.max(maxY, maxX) + GRID_SPACING + GRID_SPACING;
       let gridXZ = new THREE.GridHelper(
-		      size,
-		      size / GRID_SPACING,
-		      0x42a5f5, // center line color
-		      0x42a5f5 // grid color,
-	    );
-       scene.add(gridXZ);
-       gridXZ.position.y = 0;
-       gridXZ.position.x = size / 2 - GRID_SPACING;
-       gridXZ.position.z = size / 2 - GRID_SPACING;
+        size,
+        size / GRID_SPACING,
+        0x42a5f5, // center line color
+        0x42a5f5 // grid color,
+      );
+
+      gridXZ.position.y = 0;
+      gridXZ.position.x = size / 2 - GRID_SPACING;
+      gridXZ.position.z = size / 2 - GRID_SPACING;
+      scene.add(gridXZ);
     };
 
     http(
       "/assets/containers.json"
     ).then(load);
-
-    setInterval(function(){ 
-      http(
-        "/assets/containers.json"
-      ).then(load);
-    }, 500);
+    //  setInterval(function(){
+    //    http(
+    //      "/assets/containers3.json"
+    //    ).then(load);
+    //  }, 500);
   };
 
   start = () => {
@@ -319,6 +328,7 @@ class ThreeScene extends Component {
     window.removeEventListener("resize", this.onWindowResize, false);
     document.removeEventListener("keydown", this.onDocumentKeyDown, false);
     document.removeEventListener("keyup", this.onDocumentKeyUp, false);
+
     this.mount.removeChild(this.renderer.domElement);
   }
 
@@ -333,8 +343,8 @@ class ThreeScene extends Component {
     event.preventDefault();
 
     if (event && typeof event !== undefined) {
-      pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-      pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+      pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
     }
   };
 
@@ -354,35 +364,35 @@ class ThreeScene extends Component {
       }
       case 65: {
         stepNumber++;
-        if(stepNumber > maxStepNumber) {
+        if (stepNumber > maxStepNumber) {
           stepNumber = 0;
         }
         console.log("Shop step number " + stepNumber);
         this.handleStepNumber();
 
         pointNumber = -1;
-        
+
         break;
       }
       case 68: {
         stepNumber--;
-        if(stepNumber < minStepNumber) {
+        if (stepNumber < minStepNumber) {
           stepNumber = maxStepNumber;
         }
         console.log("Shop step number " + stepNumber);
         this.handleStepNumber();
-        
+
         break;
       }
       case 80: {
         points = !points;
         this.pointNumber = -1;
-        if(points) {
+        if (points) {
           console.log("Show points");
         } else {
           console.log("Hide points");
         }
-        
+
         this.handleStepNumber();
         this.renderScene();
 
@@ -391,25 +401,25 @@ class ThreeScene extends Component {
       case 87: {
         // 
         pointNumber++;
-        if(pointNumber >= maxPointNumbers[stepNumber - 1]) {
+        if (pointNumber >= maxPointNumbers[stepNumber - 1]) {
           pointNumber = 0;
-        }        
-        console.log("Shop point number " + pointNumber + " of " + maxPointNumbers[stepNumber-1]);
+        }
+        console.log("Shop point number " + pointNumber + " of " + maxPointNumbers[stepNumber - 1]);
         this.handleStepNumber();
         break;
       }
       case 83: {
         // 
         pointNumber--;
-        if(pointNumber < 0) {
-          pointNumber = maxPointNumbers[stepNumber - 1]-1;
+        if (pointNumber < 0) {
+          pointNumber = maxPointNumbers[stepNumber - 1] - 1;
         }
-        console.log("Shop point number " + pointNumber + " of " + maxPointNumbers[stepNumber-1]);
+        console.log("Shop point number " + pointNumber + " of " + maxPointNumbers[stepNumber - 1]);
         this.handleStepNumber();
 
         break;
       }
-      
+
       default: {
         break;
       }
@@ -431,7 +441,7 @@ class ThreeScene extends Component {
 
     // ------- Add RENDERED ------
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    this.renderer.setClearColor("#263238");
+    this.renderer.setClearColor("#000000");
     this.renderer.setSize(width, height);
     this.mount.appendChild(this.renderer.domElement);
 
@@ -440,7 +450,7 @@ class ThreeScene extends Component {
     camera.position.z = -50;
     camera.position.y = 50;
     camera.position.x = -50;
-//    camera.lookAt(new THREE.Vector3(19000, 0, 0));
+    camera.lookAt(new THREE.Vector3(1900, 0, 0));
 
     //------Add ORBIT CONTROLS--------
     controls = new OrbitControls(camera, this.renderer.domElement);
@@ -462,18 +472,22 @@ class ThreeScene extends Component {
     raycaster = new THREE.Raycaster();
 
     var ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    
+
     this.scene.add(ambientLight);
   };
+
+
+
   //-------------HELPER------------------
   render() {
     return (
       <div
-        style={{ width: window.innerWidth, height: window.innerHeight }}
+        style={{ width: window.innerWidth, height: window.innerHeight - 100, marginTop: 8 }}
         ref={mount => {
           this.mount = mount;
         }}
       />
+
     );
   }
 }

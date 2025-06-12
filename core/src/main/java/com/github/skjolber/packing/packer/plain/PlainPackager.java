@@ -186,7 +186,7 @@ public class PlainPackager extends AbstractPlainPackager {
 		}
 
 		return new DefaultPackResult(new DefaultContainer(targetContainer.getId(), targetContainer.getDescription(), targetContainer.getVolume(), targetContainer.getEmptyWeight(), stackValues, stack),
-				stack, remainingStackables.isEmpty(), index);
+				stack, true, index);
 	}
 
 	protected long calculateXYSupportPercent(ExtremePoints3D extremePoints3D, Point3D referencePoint, StackValue stackValue) {
