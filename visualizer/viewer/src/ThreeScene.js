@@ -173,11 +173,24 @@ class ThreeScene extends Component {
     if (index > lenght) {
       return
     }
+    // Sort placements for visualization: Z (bottom-up), then X (inside-out), then Y
+    // boxList.sort((a, b) => {
+    //   if (a.position.x !== b.position.x) {
+    //     return a.position.x - b.position.x; // Smaller Z first (bottom-up)
+    //   }
+    //   if (a.position.y !== b.position.y) {
+    //     return a.position.y - b.position.y; // Smaller X first (inside-out on X)
+    //   }
+    //   return a.position.z - b.position.z; // Smaller Y first (inside-out on Y)
+    // });
     let box = null;
     // if (index == 0) {
-    //   for (var i = 0; i < 429; i++) {
+    //   for (var i = 0; i < 629; i++) {
     //     box = boxList[index];
-    //     container3D.add(box);
+    //     if (box != null) {
+    //       container3D.add(box);
+    //       console.log("Pick box name "+box.name+ " at index " + index + " with position " + box.position.x + ", " + box.position.y + ", " + box.position.z);
+    //     }
     //     index++;
     //   }
     // }
@@ -186,7 +199,7 @@ class ThreeScene extends Component {
       console.log("No box found at index " + index);
       return;
     }
-    console.log("Pick box at index " + index + " with position " + box.position.x + ", " + box.position.y + ", " + box.position.z);
+    console.log("Pick box name "+box.name+ " at index " + index + " with position " + box.position.x + ", " + box.position.y + ", " + box.position.z);
     container3D.add(box)
     index++;
   }
@@ -235,6 +248,7 @@ class ThreeScene extends Component {
         var offsetX = - container.dy / 2;
         var offsetY = - container.dz / 2;
         var offsetZ = - container.dx / 2;
+
         for (var j = 0; j < containerJson.stack.placements.length; j++) {
           var placement = containerJson.stack.placements[j];
           var stackable = placement.stackable;
@@ -249,11 +263,6 @@ class ThreeScene extends Component {
 
           var points = new Array();
 
-          for (var l = 0; l < placement.points.length; l++) {
-            var point = placement.points[l];
-
-            points.push(new Point(point.x, point.y, point.z, point.dx, point.dy, point.dz));
-          }
           if (maxPointNumbers[stackable.step] == null || maxPointNumbers[stackable.step] < points.length) {
             maxPointNumbers[stackable.step] = points.length;
           }
@@ -262,7 +271,7 @@ class ThreeScene extends Component {
             var st = new StackPlacement(box, placement.step, placement.x, placement.y, placement.z, points);
             // container.add(st);
 
-            var position = stackableRenderer.makeBoxPosition(st, offsetX, offsetY, offsetZ);
+            var position = stackableRenderer.makeBoxPosition(st,memoryScheme, offsetX, offsetY, offsetZ);
             boxList.push(position);
           } else {
             // TODO

@@ -1,7 +1,6 @@
 package com.github.skjolber.packing.packer.plain;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.github.skjolber.packing.api.Container;
@@ -30,6 +29,28 @@ import com.github.skjolber.packing.packer.DefaultPackResultComparator;
 
 public class PlainPackager extends AbstractPlainPackager {
 
+	public enum SortType {
+		VOLUME_DESC,
+		WEIGHT_ASC,
+		ID_GROUPING,
+		AREA_DESC;
+
+		public Comparator<Stackable> comparator() {
+			switch (this) {
+				case VOLUME_DESC:
+					return Comparator.comparingLong(Stackable::getVolume).reversed();
+				case WEIGHT_ASC:
+					return Comparator.comparingInt(Stackable::getWeight);
+				case ID_GROUPING:
+					return Comparator.comparing(Stackable::getId);
+				case AREA_DESC:
+					return Comparator.comparingLong(Stackable::getMinimumArea).reversed();
+				default:
+					throw new IllegalArgumentException();
+			}
+		}
+	}
+
 	public static Builder newBuilder() {
 		return new Builder();
 	}
@@ -49,6 +70,25 @@ public class PlainPackager extends AbstractPlainPackager {
 	}
 
 	public DefaultPackResult pack(List<Stackable> stackables, Container targetContainer, int index, PackagerInterruptSupplier interrupt) {
+		return pack(stackables, targetContainer, index, interrupt, EnumSet.allOf(SortType.class));
+	}
+
+	public DefaultPackResult pack(List<Stackable> stackables, Container targetContainer, int index, PackagerInterruptSupplier interrupt, Set<SortType> strategies) {
+		DefaultPackResult bestResult = null;
+
+		for (SortType strategy : strategies) {
+			List<Stackable> sorted = new ArrayList<>(stackables);
+			sorted.sort(strategy.comparator());
+			
+			DefaultPackResult result = tryPack(sorted, targetContainer, index, interrupt);
+			if (result != null && (bestResult == null || result.getSize() > bestResult.getSize())) {
+				bestResult = result;
+			}
+		}
+		return bestResult;
+	}
+
+	private DefaultPackResult tryPack(List<Stackable> stackables, Container targetContainer, int index, PackagerInterruptSupplier interrupt) {
 		List<Stackable> remainingStackables = new ArrayList<>(stackables);
 
 		ContainerStackValue[] stackValues = targetContainer.getStackValues();
@@ -87,6 +127,7 @@ public class PlainPackager extends AbstractPlainPackager {
 
 			StackValue bestStackValue = null;
 			Stackable bestStackable = null;
+			String lastPlacedStackableId = stack.isEmpty() ? null : stack.getPlacements().get(stack.getPlacements().size() - 1).getStackable().getId();
 
 			int currentPointsCount = extremePoints3D.getValueCount();
 			for (int i = 0; i < scopedStackables.size(); i++) {
@@ -121,38 +162,55 @@ public class PlainPackager extends AbstractPlainPackager {
 							continue;
 						}
 
-						long pointSupportPercent; // cache for costly measurement
-						if(bestIndex != -1) {
-							Point3D bestPoint = extremePoints3D.getValue(bestPointIndex);
-							
-							if(point3d.getMinZ() > bestPoint.getMinZ()) {
-								continue;
-							}
-							
-							pointSupportPercent = calculateXYSupportPercent(extremePoints3D, point3d, stackValue);
-							
-							if(point3d.getMinZ() == bestPoint.getMinZ()) {
-								if(pointSupportPercent < bestPointSupportPercent) {
-									continue;
-								}
-							
-								if(stackValue.getArea() <= bestStackValue.getArea()) {
-									continue;
-								}
-							}
-						} else {
-							pointSupportPercent = calculateXYSupportPercent(extremePoints3D, point3d, stackValue);
-						}
-						
+						// Check constraints first
 						if(constraint != null && !constraint.supports(stack, box, stackValue, point3d.getMinX(), point3d.getMinY(), point3d.getMinZ())) {
 							continue;
 						}
-						
-						bestPointSupportPercent = pointSupportPercent;
-						bestPointIndex = k;
-						bestIndex = i;
-						bestStackValue = stackValue;
-						bestStackable = box;
+
+						long calculatedPointSupportPercent = calculateXYSupportPercent(extremePoints3D, point3d, stackValue); // Calculate support
+						boolean updateBest = false;
+
+						if (bestIndex == -1) { // No best placement found yet
+							updateBest = true;
+						} else {
+							Point3D currentBestPoint = extremePoints3D.getValue(bestPointIndex);
+
+							// Criterion 1: Lower Z is better
+							if (point3d.getMinZ() < currentBestPoint.getMinZ()) {
+								updateBest = true;
+							} else if (point3d.getMinZ() == currentBestPoint.getMinZ()) {
+								// Criterion 2: Lower X is better (for same Z)
+								if (point3d.getMinX() < currentBestPoint.getMinX()) {
+									updateBest = true;
+								} else if (point3d.getMinX() == currentBestPoint.getMinX()) {
+									// Criterion 3: Prefer same item ID (for same Z and X)
+									boolean currentIsSameId = lastPlacedStackableId != null && box.getId().equals(lastPlacedStackableId);
+									boolean bestIsSameId = bestStackable != null && lastPlacedStackableId != null && bestStackable.getId().equals(lastPlacedStackableId);
+
+									if (currentIsSameId && !bestIsSameId) {
+										updateBest = true;
+									} else if (currentIsSameId == bestIsSameId) {
+										// Criterion 4: Higher support is better (for same Z, X, and same ID preference)
+										if (calculatedPointSupportPercent > bestPointSupportPercent) {
+											updateBest = true;
+										} else if (calculatedPointSupportPercent == bestPointSupportPercent) {
+											// Criterion 5: Larger item area is better (for same Z, X, same ID preference, and support)
+											if (bestStackValue == null || stackValue.getArea() > bestStackValue.getArea()) {
+												updateBest = true;
+											}
+										}
+									}
+								}
+							}
+						}
+
+						if (updateBest) {
+							bestPointSupportPercent = calculatedPointSupportPercent;
+							bestPointIndex = k;
+							bestIndex = i;
+							bestStackValue = stackValue;
+							bestStackable = box;
+						}
 					}
 				}
 			}

@@ -251,7 +251,9 @@ export class StackableRenderer {
             if (sku == 'USAN1040953-2') {
                 // return undefined;
             }
-            var sColor = boxStackable.id == 'USAN1040953-2' ? '#FFFF33' : '#FF9900';
+            // var sColor = boxStackable.id == 'USAN1040953-2' ? '#FFFF33' : '#FF9900';
+            var sColor = colorScheme.getStackable(boxStackable);
+
 
             var material = new THREE.MeshStandardMaterial({
                 color: sColor,
@@ -302,7 +304,7 @@ export class StackableRenderer {
         return undefined;
     }
 
-    makeBoxPosition(stackPlacement: StackPlacement, x: number, y: number, z: number) {
+    makeBoxPosition(stackPlacement: StackPlacement,colorScheme: ColorScheme, x: number, y: number, z: number) {
         var stackable = stackPlacement.stackable;
         var boxStackable: Box = stackable;
         // console.log("Add box " + boxStackable.id + " size " + boxStackable.dx + "x" + boxStackable.dy + "x" + boxStackable.dz + " at " + stackPlacement.x + "," + stackPlacement.y + "," + stackPlacement.z);
@@ -310,8 +312,9 @@ export class StackableRenderer {
         if (sku == 'USAN1040953-2') {
             // return undefined;
         }
-        var sColor = boxStackable.id == 'USAN1040953-2' ? 'red' : 'blue';
-
+        
+        // var sColor = boxStackable.id == 'USAN1040953-2' ? 'red' : 'blue';
+        var sColor = colorScheme.getStackable(boxStackable);
         var material = new THREE.MeshStandardMaterial({
             color: sColor,
             opacity: 0.8,
@@ -334,7 +337,7 @@ export class StackableRenderer {
         var geometry = new THREE.BoxGeometry(geometryDy, geometryDz, geometryDx);
         var box = new THREE.Mesh(geometry, material);
 
-        box.name = boxStackable.name;
+        box.name = boxStackable.id;
 
         box.position.x = stackPlacement.y + boxStackable.dy / 2 + x;
         box.position.y = stackPlacement.z + boxStackable.dz / 2 + y;

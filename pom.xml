@@ -44,6 +44,7 @@
 		<pitest.version>1.18.1</pitest.version>
 		<jackson.version>2.18.2</jackson.version>
 		<spotless.version>2.44.2</spotless.version>
+		<ortools.version>9.8.3296</ortools.version>
 	</properties>
 
 	<licenses>
@@ -228,8 +229,15 @@
 				<version>${jackson.version}</version>
 				<scope>import</scope>
 				<type>pom</type>
-			</dependency> 
+			</dependency>
+			<!-- https://mvnrepository.com/artifact/com.google.ortools/ortools-java -->
+			<dependency>
+				<groupId>com.google.ortools</groupId>
+				<artifactId>ortools-java</artifactId>
+				<version>${ortools.version}</version>
+			</dependency>
 		</dependencies>
+
 	</dependencyManagement>
 	<modules>
 		<module>api</module>
